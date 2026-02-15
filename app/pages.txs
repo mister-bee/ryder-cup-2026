@@ -1,108 +1,79 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function HomePage() {
+type SessionRow = {
+  id: string;
+  name: string;
+  points_available: number;
+  sort_order: number;
+};
+
+type EventRow = {
+  id: string;
+  name: string;
+  team_a_name: string;
+  team_b_name: string;
+};
+
+export default function LeaderboardPage() {
   const router = useRouter();
-  const [pin, setPin] = useState("");
+  const [event, setEvent] = useState<EventRow | null>(null);
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [err, setErr] = useState("");
 
-  const groupPin = useMemo(() => process.env.NEXT_PUBLIC_GROUP_PIN ?? "", []);
+  useEffect(() => {
+    const ok = localStorage.getItem("rc26_pin_ok") === "1";
+    if (!ok) router.replace("/");
+  }, [router]);
 
-  function submit() {
-    setErr("");
+  useEffect(() => {
+    async function load() {
+      setErr("");
 
-    if (!groupPin) {
-      setErr("Missing GROUP PIN configuration.");
-      return;
+      const ev = await supabase
+        .from("events")
+        .select("id,name,team_a_name,team_b_name")
+        .limit(1)
+        .maybeSingle();
+
+      if (ev.error) return setErr(ev.error.message);
+      if (!ev.data) return setErr("No event found in database.");
+      setEvent(ev.data);
+
+      const ss = await supabase
+        .from("sessions")
+        .select("id,name,points_available,sort_order")
+        .order("sort_order", { ascending: true });
+
+      if (ss.error) return setErr(ss.error.message);
+      setSessions(ss.data ?? []);
     }
 
-    if (pin === groupPin) {
-      localStorage.setItem("rc26_pin_ok", "1");
-      router.push("/leaderboard");
-    } else {
-      setErr("Wrong PIN.");
-    }
-  }
+    load();
+  }, []);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-        background: "#f8f9fb"
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          border: "1px solid #e2e2e2",
-          borderRadius: 16,
-          padding: 24,
-          background: "white"
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 22 }}>
-          2026 Ryder Cup
-        </h1>
+    <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
+      <h1>{event?.name ?? "Leaderboard"}</h1>
+      <p>
+        {event ? `${event.team_a_name} vs. ${event.team_b_name}` : ""}
+      </p>
 
-        <p style={{ marginTop: 8, color: "#555" }}>
-          Mergen vs. Carlson 2026
-        </p>
-
-        <label
-          style={{
-            display: "block",
-            marginTop: 20,
-            fontSize: 12,
-            color: "#444"
-          }}
-        >
-          Group PIN
-        </label>
-
-        <input
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          inputMode="numeric"
-          placeholder="Enter PIN"
-          style={{
-            width: "100%",
-            marginTop: 6,
-            padding: 12,
-            borderRadius: 12,
-            border: "1px solid #ccc",
-            fontSize: 16
-          }}
-        />
-
-        {err ? (
-          <div style={{ marginTop: 10, color: "crimson" }}>
-            {err}
-          </div>
-        ) : null}
-
-        <button
-          onClick={submit}
-          style={{
-            width: "100%",
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 12,
-            border: "none",
-            background: "#111",
-            color: "white",
-            fontSize: 16,
-            cursor: "pointer"
-          }}
-        >
-          Enter
-        </button>
-      </div>
+      {err ? (
+        <div style={{ color: "red" }}>{err}</div>
+      ) : (
+        <>
+          <h2>Sessions</h2>
+          {sessions.map((s) => (
+            <div key={s.id}>
+              {s.name} — {s.points_available} pts
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
