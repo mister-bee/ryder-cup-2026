@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { db } from "../../lib/firebaseClient";
 import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 
@@ -20,16 +19,9 @@ type EventRow = {
 };
 
 export default function LeaderboardPage() {
-  const router = useRouter();
   const [event, setEvent] = useState<EventRow | null>(null);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [err, setErr] = useState("");
-
-  // Simple gate: must have passed PIN
-  useEffect(() => {
-    const ok = localStorage.getItem("rc26_pin_ok") === "1";
-    if (!ok) router.replace("/");
-  }, [router]);
 
   useEffect(() => {
     async function load() {
