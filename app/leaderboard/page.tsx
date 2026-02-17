@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
+import { db } from "../../lib/firebaseClient";
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 
 type SessionRow = {
   id: string;
@@ -34,23 +35,23 @@ export default function LeaderboardPage() {
     async function load() {
       setErr("");
 
-      const ev = await supabase
-        .from("events")
-        .select("id,name,team_a_name,team_b_name")
-        .limit(1)
-        .maybeSingle();
+      try {
+        // Fetch first event
+        const evSnap = await getDocs(query(collection(db, "events"), limit(1)));
+        if (evSnap.empty) return setErr("No event found in database.");
+        const evDoc = evSnap.docs[0];
+        setEvent({ id: evDoc.id, ...evDoc.data() } as EventRow);
 
-      if (ev.error) return setErr(ev.error.message);
-      if (!ev.data) return setErr("No event found in database.");
-      setEvent(ev.data);
-
-      const ss = await supabase
-        .from("sessions")
-        .select("id,name,points_available,sort_order")
-        .order("sort_order", { ascending: true });
-
-      if (ss.error) return setErr(ss.error.message);
-      setSessions(ss.data ?? []);
+        // Fetch sessions ordered by sort_order
+        const ssSnap = await getDocs(
+          query(collection(db, "sessions"), orderBy("sort_order", "asc"))
+        );
+        setSessions(
+          ssSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as SessionRow)
+        );
+      } catch (e: unknown) {
+        setErr(e instanceof Error ? e.message : "Failed to load data.");
+      }
     }
 
     load();
