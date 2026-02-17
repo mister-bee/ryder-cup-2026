@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ryder-cup-graphics": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["./mcp-server/build/index.js"],
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      }
+    }
+  }
+}
